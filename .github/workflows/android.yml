@@ -1,0 +1,56 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Buildozer and python-for-android
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.buildozer
+            ~/.local/share/python-for-android
+          key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y openjdk-8-jdk build-essential python3-pip git unzip curl \
+            autoconf automake libtool pkg-config gettext autopoint libffi-dev libssl-dev zlib1g-dev
+
+      - name: Download Haar Cascade
+        run: |
+          mkdir -p data
+          curl -sSfL \
+            https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml \
+            -o data/haarcascade_frontalface_default.xml
+
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+
+      - name: Install buildozer and cython
+        run: |
+          pip install --upgrade pip
+          pip install buildozer cython
+
+      - name: Build APK (debug)
+        run: |
+          yes y | buildozer -v android debug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: FaceApp-debug.apk
+          path: ./bin/*.apk
