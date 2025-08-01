@@ -2,17 +2,23 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]         # Trigger on push to main branch
   pull_request:
-    branches: [ main ]
+    branches: [ main ]         # Also trigger on PRs to main
 
 jobs:
   build:
     runs-on: ubuntu-20.04
+    concurrency:
+      group: build-android     # Cancel any in-progress builds of this job group when a new one starts
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        # Fetch full commit history (default is shallow clone). Uncomment if needed:
+        # with:
+        #   fetch-depth: 0
 
       - name: Cache Buildozer and python-for-android
         uses: actions/cache@v3
@@ -21,18 +27,20 @@ jobs:
             ~/.buildozer
             ~/.local/share/python-for-android
           key: ${{ runner.os }}-buildozer-${{ hashFiles('buildozer.spec') }}
+          restore-keys: |
+            ${{ runner.os }}-buildozer-
 
       - name: Install system dependencies
         run: |
-          sudo apt update
-          sudo apt install -y openjdk-8-jdk build-essential python3-pip git unzip curl \
-            autoconf automake libtool pkg-config gettext autopoint libffi-dev libssl-dev zlib1g-dev
+          sudo apt-get update && sudo apt-get install -y \
+            openjdk-8-jdk build-essential python3-pip git unzip curl \
+            autoconf automake libtool pkg-config gettext autopoint \
+            libffi-dev libssl-dev zlib1g-dev
 
       - name: Download Haar Cascade
         run: |
           mkdir -p data
-          curl -sSfL \
-            https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml \
+          curl -sSfL https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml \
             -o data/haarcascade_frontalface_default.xml
 
       - name: Setup Python 3.10
@@ -40,9 +48,9 @@ jobs:
         with:
           python-version: 3.10
 
-      - name: Install buildozer and cython
+      - name: Install Buildozer and dependencies
         run: |
-          pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install buildozer cython
 
       - name: Build APK (debug)
